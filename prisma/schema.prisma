@@ -1,0 +1,78 @@
+// Prisma schema for RePrice - platform connecting supermarkets and consumers
+// to sell products close to expiration at reduced prices.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Consumer account
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  city      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reservations Reservation[]
+}
+
+// Company / supermarket account
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  cnpj      String?
+  phone     String?
+  city      String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  category       String
+  originalPrice  Float
+  promoPrice     Float
+  expirationDate DateTime
+  quantity       Int
+  imageUrl       String?
+  status         String   @default("ACTIVE") // ACTIVE | RESERVED | SOLD_OUT | EXPIRED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  companyId     String
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  reservations  Reservation[]
+}
+
+model Reservation {
+  id         String   @id @default(cuid())
+  quantity    Int
+  status     String   @default("PENDING") // PENDING | READY | DELIVERED | CANCELLED
+  pickupCode String   @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  companyId String
+}
