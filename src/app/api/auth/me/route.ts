@@ -6,6 +6,12 @@ export async function GET() {
   const session = await getSession()
   if (!session) return NextResponse.json({ user: null })
 
+  if (session.role === 'dev') {
+    return NextResponse.json({
+      user: { id: session.id, name: session.name, email: session.email, role: 'dev' },
+    })
+  }
+
   if (session.role === 'user') {
     const user = await db.user.findUnique({
       where: { id: session.id },

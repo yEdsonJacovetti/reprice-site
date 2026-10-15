@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { setSession } from '@/lib/session'
+import { hashPassword, isHashed, verifyPassword } from '@/lib/password'
 
 export async function POST(req: Request) {
   try {
@@ -20,11 +21,14 @@ export async function POST(req: Request) {
 
     if (role === 'user') {
       const user = await db.user.findUnique({ where: { email } })
-      if (!user || user.password !== password) {
+      if (!user || !verifyPassword(user.password, password)) {
         return NextResponse.json(
           { error: 'Email ou senha inválidos.' },
           { status: 401 },
         )
+      }
+      if (!isHashed(user.password)) {
+        await db.user.update({ where: { id: user.id }, data: { password: hashPassword(password) } })
       }
       await setSession({
         role: 'user',
@@ -40,11 +44,14 @@ export async function POST(req: Request) {
       })
     } else {
       const company = await db.company.findUnique({ where: { email } })
-      if (!company || company.password !== password) {
+      if (!company || !verifyPassword(company.password, password)) {
         return NextResponse.json(
           { error: 'Email ou senha inválidos.' },
           { status: 401 },
         )
+      }
+      if (!isHashed(company.password)) {
+        await db.company.update({ where: { id: company.id }, data: { password: hashPassword(password) } })
       }
       await setSession({
         role: 'company',

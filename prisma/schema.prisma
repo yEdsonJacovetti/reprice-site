@@ -91,3 +91,30 @@ model Reservation {
 
   @@map("reservations")
 }
+
+// Perguntas frequentes (aba Suporte). Gerenciadas pela área de dev.
+model Faq {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  position  Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("faqs")
+}
+
+// Mensagens enviadas pelo formulário "Fale com a gente" da aba Suporte.
+model SupportMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  status    String   @default("OPEN") // OPEN | RESOLVED
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("support_messages")
+}

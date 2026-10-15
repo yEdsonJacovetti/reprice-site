@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { setSession } from '@/lib/session'
+import { hashPassword } from '@/lib/password'
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     }
 
     const company = await db.company.create({
-      data: { name, email, password, cnpj, phone, city, address },
+      data: { name, email, password: hashPassword(String(password)), cnpj, phone, city, address },
     })
 
     await setSession({

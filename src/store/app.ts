@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 
-export type SessionRole = 'user' | 'company'
+export type SessionRole = 'user' | 'company' | 'dev'
 
 export type SessionInfo = {
   role: SessionRole
@@ -39,6 +39,9 @@ export type AppView =
   | 'company-near-expiration'
   | 'company-orders'
   | 'company-new-product'
+  | 'support'
+  | 'dev-login'
+  | 'dev'
 
 export const useAppStore = create<AppState>((set) => ({
   session: null,

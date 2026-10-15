@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ShoppingCart, LogOut, User as UserIcon, Store, Leaf } from 'lucide-react'
+import { ShoppingCart, LogOut, User as UserIcon, Store, Leaf, Code2 } from 'lucide-react'
 import { useAppStore } from '@/store/app'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +43,14 @@ export function Header() {
           >
             Ofertas
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setView('support')}
+            className="text-foreground/80 hover:text-foreground"
+          >
+            Suporte
+          </Button>
 
           {session?.role === 'user' && (
             <>
@@ -82,6 +90,18 @@ export function Header() {
             </Button>
           )}
 
+          {session?.role === 'dev' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setView('dev')}
+              className="text-amber-400 hover:text-amber-300"
+            >
+              <Code2 className="h-4 w-4" />
+              Dev
+            </Button>
+          )}
+
           {!session ? (
             <Button
               size="sm"
@@ -95,6 +115,8 @@ export function Header() {
               <span className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
                 {session.role === 'company' ? (
                   <Store className="h-3 w-3" />
+                ) : session.role === 'dev' ? (
+                  <Code2 className="h-3 w-3" />
                 ) : (
                   <UserIcon className="h-3 w-3" />
                 )}

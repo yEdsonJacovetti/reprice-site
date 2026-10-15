@@ -15,6 +15,9 @@ import { CompanyProducts } from '@/components/reprice/CompanyProducts'
 import { CompanyNearExpiration } from '@/components/reprice/CompanyNearExpiration'
 import { CompanyOrders } from '@/components/reprice/CompanyOrders'
 import { CompanyNewProduct } from '@/components/reprice/CompanyNewProduct'
+import { SupportView } from '@/components/reprice/SupportView'
+import { DevLoginView } from '@/components/reprice/DevLoginView'
+import { DevPanel } from '@/components/reprice/DevPanel'
 
 export default function Home() {
   const { view, session, loadingSession, setSession, setLoadingSession, setView } =
@@ -45,6 +48,12 @@ export default function Home() {
     }
     if (session?.role === 'company' && ['cart', 'orders'].includes(view)) {
       setView('company-dashboard')
+    }
+    if (view === 'dev' && session?.role !== 'dev') {
+      setView('dev-login')
+    }
+    if (session?.role === 'dev' && (view.startsWith('company-') || ['cart', 'orders'].includes(view))) {
+      setView('dev')
     }
   }, [session, view, setView])
 
@@ -90,6 +99,12 @@ export default function Home() {
             <CompanyNewProduct />
           </CompanyLayout>
         )
+      case 'support':
+        return <SupportView />
+      case 'dev-login':
+        return <DevLoginView />
+      case 'dev':
+        return <DevPanel />
       case 'home':
       default:
         return <HomeView />

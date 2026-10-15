@@ -1,5 +1,5 @@
-// Roda no build: garante que as tabelas existem e coloca os dados de exemplo
-// se o banco estiver vazio. Pode rodar quantas vezes quiser (não apaga nada).
+// Roda no build: garante que as tabelas existem, remove os dados de exemplo
+// antigos e cria o FAQ inicial. Pode rodar quantas vezes quiser.
 import { PrismaClient } from '@prisma/client'
 import { resolveDbUrl } from './db-url.mjs'
 
@@ -66,49 +66,56 @@ const TABLES = [
     "created_at" timestamp DEFAULT now() NOT NULL,
     "updated_at" timestamp DEFAULT now() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS "faqs" (
+    "id" text PRIMARY KEY,
+    "question" text NOT NULL,
+    "answer" text NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    "published" boolean DEFAULT true NOT NULL,
+    "created_at" timestamp DEFAULT now() NOT NULL,
+    "updated_at" timestamp DEFAULT now() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS "support_messages" (
+    "id" text PRIMARY KEY,
+    "name" text NOT NULL,
+    "email" text NOT NULL,
+    "subject" text NOT NULL,
+    "message" text NOT NULL,
+    "status" text DEFAULT 'OPEN' NOT NULL,
+    "created_at" timestamp DEFAULT now() NOT NULL,
+    "updated_at" timestamp DEFAULT now() NOT NULL
+  )`,
 ]
 
-const days = (n) => {
-  const d = new Date()
-  d.setDate(d.getDate() + n)
-  return d
-}
+// Perguntas iniciais do FAQ (só entram se a tabela estiver vazia;
+// depois disso, edite pela área de dev).
+const FAQS = [
+  ['O que é o RePrice?', 'É uma plataforma que conecta supermercados e consumidores. Os mercados anunciam produtos próximos da validade com desconto, e você reserva pelo site e retira na loja, evitando desperdício e economizando.'],
+  ['Os produtos estão vencidos?', 'Não. Todos os produtos estão dentro da validade. Eles só estão mais perto da data de vencimento, por isso ganham desconto. A data aparece em cada oferta.'],
+  ['Como faço uma reserva?', 'Crie uma conta de cliente, escolha os produtos em Ofertas, adicione ao carrinho e confirme a reserva. O pedido aparece em Meus pedidos com um código de retirada.'],
+  ['Preciso pagar pelo site?', 'Não. O pagamento é feito direto no mercado, na hora em que você retira os produtos.'],
+  ['Como retiro meu pedido?', 'Quando o mercado marcar o pedido como pronto, vá até a loja e mostre o código de retirada que aparece em Meus pedidos.'],
+  ['Posso cancelar uma reserva?', 'Sim. Se não puder retirar, entre em contato com o mercado ou com o suporte pelo formulário abaixo para liberarmos os produtos para outra pessoa.'],
+  ['Sou um mercado. Como anuncio meus produtos?', 'Crie uma conta do tipo Empresa. No Painel você cadastra os produtos, define o preço promocional e acompanha as reservas recebidas.'],
+]
 
 async function main() {
   for (const sql of TABLES) await db.$executeRawUnsafe(sql)
   console.log('[setup-db] Tabelas ok.')
 
-  const count = await db.product.count()
-  if (count > 0) {
-    console.log(`[setup-db] Banco já tem ${count} produto(s). Seed pulado.`)
-    return
-  }
-
-  const company = await db.company.upsert({
+  // Remove o mercado de exemplo e os produtos de exemplo (com as reservas
+  // deles), que eram criados automaticamente nas versões anteriores.
+  const removed = await db.company.deleteMany({
     where: { email: 'mercadoexemplo@reprice.com' },
-    update: {},
-    create: {
-      name: 'Mercado Exemplo',
-      email: 'mercadoexemplo@reprice.com',
-      password: '123456',
-      cnpj: '00.000.000/0001-00',
-      phone: '(11) 9999-0000',
-      city: 'São Paulo',
-      address: 'Rua das Ofertas, 100',
-    },
   })
+  if (removed.count) console.log('[setup-db] Mercado e produtos de exemplo removidos.')
 
-  const samples = [
-    { name: 'Arroz 5kg Tio João', description: 'Pacote de arroz branco tipo 1, 5kg.', category: 'Mercearia', originalPrice: 28.9, promoPrice: 18.5, expirationDate: days(15), quantity: 12 },
-    { name: 'Leite Integral 1L', description: 'Caixa de leite integral, 1 litro.', category: 'Laticínios', originalPrice: 6.49, promoPrice: 3.99, expirationDate: days(5), quantity: 30 },
-    { name: 'Pão Francês (6un)', description: 'Pacote com 6 pães franceses.', category: 'Padaria', originalPrice: 9.0, promoPrice: 5.0, expirationDate: days(1), quantity: 8 },
-    { name: 'Carne Moída 1kg', description: 'Carne moída resfriada, 1kg.', category: 'Açougue', originalPrice: 39.9, promoPrice: 24.9, expirationDate: days(2), quantity: 5 },
-    { name: 'Banana Prata 1kg', description: 'Banana prata madura, 1kg.', category: 'Hortifrúti', originalPrice: 7.5, promoPrice: 3.99, expirationDate: days(3), quantity: 20 },
-    { name: 'Iogurte Natural 170g', description: 'Pote de iogurte natural, 170g.', category: 'Laticínios', originalPrice: 4.49, promoPrice: 1.99, expirationDate: days(4), quantity: 25 },
-  ]
-
-  await db.product.createMany({ data: samples.map((s) => ({ ...s, companyId: company.id })) })
-  console.log(`[setup-db] Criados ${samples.length} produtos de exemplo.`)
+  if ((await db.faq.count()) === 0) {
+    await db.faq.createMany({
+      data: FAQS.map(([question, answer], i) => ({ question, answer, position: i })),
+    })
+    console.log(`[setup-db] FAQ inicial criado (${FAQS.length} perguntas).`)
+  }
 }
 
 main()
