@@ -8,7 +8,7 @@ export async function GET(
   const { id } = await params
   const product = await db.product.findUnique({
     where: { id },
-    include: { company: true },
+    include: { company: { select: { id: true, name: true, city: true, address: true, phone: true } } },
   })
   if (!product) {
     return NextResponse.json({ error: 'Produto não encontrado.' }, { status: 404 })

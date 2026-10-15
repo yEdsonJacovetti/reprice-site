@@ -16,7 +16,7 @@ export async function GET(req: Request) {
         : {}),
       ...(category ? { category } : {}),
     },
-    include: { company: true },
+    include: { company: { select: { id: true, name: true, city: true, address: true, phone: true } } },
     orderBy: { expirationDate: 'asc' },
   })
 

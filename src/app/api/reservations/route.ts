@@ -10,7 +10,7 @@ export async function GET() {
 
   const reservations = await db.reservation.findMany({
     where: { userId: session.id },
-    include: { product: { include: { company: true } } },
+    include: { product: { include: { company: { select: { id: true, name: true, city: true, address: true, phone: true } } } } },
     orderBy: { createdAt: 'desc' },
   })
 
