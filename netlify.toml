@@ -1,5 +1,4 @@
 # Configuração de deploy no Netlify.
-# O Netlify detecta o Next.js sozinho e transforma as rotas /api em funções.
 [build]
   command = "npm run build"
   publish = ".next"
@@ -7,3 +6,9 @@
 [build.environment]
   NODE_VERSION = "22"
   NEXT_TELEMETRY_DISABLED = "1"
+
+# Runtime do Next.js no Netlify: transforma as páginas e as rotas /api
+# em funções. Sem ele o Netlify trata o site como arquivos estáticos
+# e a página inicial dá 404.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
