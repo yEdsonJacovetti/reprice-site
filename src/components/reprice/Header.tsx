@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { ShoppingCart, LogOut, User as UserIcon, Store, Code2 } from 'lucide-react'
+import { ShoppingCart, User as UserIcon, Store, Code2 } from 'lucide-react'
 import { useAppStore } from '@/store/app'
+import { LogoutButton } from '@/components/reprice/LogoutButton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 export function Header() {
-  const { session, cart, setView, clearCart } = useAppStore()
+  const { session, cart, setView } = useAppStore()
 
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
 
@@ -119,19 +120,7 @@ export function Header() {
                 )}
                 {session.name}
               </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  await fetch('/api/auth/logout', { method: 'POST' })
-                  clearCart()
-                  setView('home')
-                  useAppStore.setState({ session: null })
-                }}
-              >
-                <LogOut className="h-4 w-4" />
-                Sair
-              </Button>
+              <LogoutButton />
             </div>
           )}
         </nav>

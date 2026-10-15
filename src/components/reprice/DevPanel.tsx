@@ -6,6 +6,7 @@ import {
   Pencil, Trash2, Plus, RefreshCw, Search, LogOut,
 } from 'lucide-react'
 import { useAppStore } from '@/store/app'
+import { LogoutButton } from '@/components/reprice/LogoutButton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -249,15 +250,8 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
 ]
 
 export function DevPanel() {
-  const { setView, clearCart } = useAppStore()
   const [tab, setTab] = useState<Tab>('overview')
 
-  async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    clearCart()
-    useAppStore.setState({ session: null })
-    setView('home')
-  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 space-y-6">
@@ -271,9 +265,7 @@ export function DevPanel() {
             <p className="text-xs text-muted-foreground">Gerencie usuários, empresas, produtos, reservas e o suporte.</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={logout}>
-          <LogOut className="h-4 w-4 mr-1" /> Sair da área de dev
-        </Button>
+        <LogoutButton label="Sair da área de dev" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-6">
