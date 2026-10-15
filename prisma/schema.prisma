@@ -1,5 +1,10 @@
 // Prisma schema for RePrice - platform connecting supermarkets and consumers
 // to sell products close to expiration at reduced prices.
+//
+// Os nomes das tabelas/colunas (@@map / @map) seguem o banco do Netlify
+// (users, companies, products, reservations, colunas em snake_case),
+// para usar o mesmo banco que já está no ar sem perder dados.
+// As tabelas são criadas por scripts/setup-db.mjs (CREATE TABLE IF NOT EXISTS).
 
 generator client {
   provider      = "prisma-client-js"
@@ -20,10 +25,12 @@ model User {
   password  String
   phone     String?
   city      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   reservations Reservation[]
+
+  @@map("users")
 }
 
 // Company / supermarket account
@@ -36,10 +43,12 @@ model Company {
   phone     String?
   city      String?
   address   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   products Product[]
+
+  @@map("companies")
 }
 
 model Product {
@@ -47,34 +56,38 @@ model Product {
   name           String
   description    String?
   category       String
-  originalPrice  Float
-  promoPrice     Float
-  expirationDate DateTime
+  originalPrice  Float    @map("original_price")
+  promoPrice     Float    @map("promo_price")
+  expirationDate DateTime @map("expiration_date")
   quantity       Int
-  imageUrl       String?
+  imageUrl       String?  @map("image_url")
   status         String   @default("ACTIVE") // ACTIVE | RESERVED | SOLD_OUT | EXPIRED
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
-  companyId     String
-  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  reservations  Reservation[]
+  reservations Reservation[]
+
+  @@map("products")
 }
 
 model Reservation {
   id         String   @id @default(cuid())
-  quantity    Int
+  quantity   Int
   status     String   @default("PENDING") // PENDING | READY | DELIVERED | CANCELLED
-  pickupCode String   @default(cuid())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  pickupCode String   @default(cuid()) @map("pickup_code")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
-  userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  productId String
+  productId String  @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  companyId String
+  companyId String @map("company_id")
+
+  @@map("reservations")
 }
