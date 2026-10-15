@@ -89,9 +89,8 @@ export function AuthView({ mode }: { mode: 'login' | 'register' }) {
     <div className="mx-auto max-w-md px-4 py-10">
       <div className="rounded-lg border border-border bg-card p-6 space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="grid h-10 w-10 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Leaf className="h-5 w-5" />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/reprice-icon.png" alt="" className="h-12 w-12" />
           <h1 className="text-2xl font-bold">
             {mode === 'login' ? 'Entrar no RePrice' : 'Criar conta'}
           </h1>

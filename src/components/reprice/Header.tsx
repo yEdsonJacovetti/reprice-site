@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ShoppingCart, LogOut, User as UserIcon, Store, Leaf, Code2 } from 'lucide-react'
+import { ShoppingCart, LogOut, User as UserIcon, Store, Code2 } from 'lucide-react'
 import { useAppStore } from '@/store/app'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,14 +16,11 @@ export function Header() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <button
           onClick={() => setView('home')}
-          className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight"
+          className="flex items-center"
+          aria-label="RePrice — início"
         >
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Leaf className="h-4 w-4" />
-          </span>
-          <span>
-            Re<span className="text-primary">Price</span>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/reprice-logo.png" alt="RePrice" className="h-7 w-auto" />
         </button>
 
         <nav className="flex items-center gap-1">
