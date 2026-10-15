@@ -45,7 +45,7 @@ type Column = {
 
 const brl = (n: number) =>
   Number(n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const dt = (s: string) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
+const dt = (s: string) => (s ? new Date(s).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—')
 const dtt = (s: string) =>
   s ? new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
 const toInputDate = (s: string) => (s ? new Date(s).toISOString().slice(0, 10) : '')

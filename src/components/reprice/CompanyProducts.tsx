@@ -53,9 +53,8 @@ function formatBRL(n: number): string {
 }
 
 function toInputDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  const tz = d.getTimezoneOffset() * 60000
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10)
+  // A validade é salva como meia-noite UTC; usar a data UTC evita mostrar o dia anterior.
+  return new Date(dateStr).toISOString().slice(0, 10)
 }
 
 export function CompanyProducts() {
@@ -114,6 +113,7 @@ export function CompanyProducts() {
             </Button>
           </DialogTrigger>
           <ProductFormDialog
+            key={open ? (editing?.id ?? 'novo') : 'fechado'}
             product={editing}
             onSaved={() => {
               setOpen(false)
@@ -228,7 +228,12 @@ function ProductFormDialog({
     product ? String(product.quantity) : '',
   )
   const [imageUrl, setImageUrl] = useState(product?.imageUrl || '')
+  const [status, setStatus] = useState(product?.status || 'ACTIVE')
   const [saving, setSaving] = useState(false)
+  const categories =
+    product && product.category && !CATEGORIES.includes(product.category)
+      ? [product.category, ...CATEGORIES]
+      : CATEGORIES
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -243,6 +248,7 @@ function ProductFormDialog({
         expirationDate,
         quantity: Number(quantity),
         imageUrl: imageUrl || null,
+        ...(product ? { status } : {}),
       }
       const url = product
         ? `/api/company/products/${product.id}`
@@ -306,7 +312,7 @@ function ProductFormDialog({
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
@@ -372,6 +378,22 @@ function ProductFormDialog({
             placeholder="https://..."
           />
         </div>
+        {product && (
+          <div className="space-y-1.5">
+            <Label htmlFor="p-status">Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger id="p-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACTIVE">Ativo (aparece nas ofertas)</SelectItem>
+                <SelectItem value="RESERVED">Reservado</SelectItem>
+                <SelectItem value="SOLD_OUT">Esgotado</SelectItem>
+                <SelectItem value="EXPIRED">Vencido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button
             type="submit"
