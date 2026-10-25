@@ -140,7 +140,7 @@ export function SupportView() {
           onClick={() => setView(session?.role === 'dev' ? 'dev' : 'dev-login')}
           className="text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors"
         >
-          v0.9 · acesso restrito
+          v0.10 · acesso restrito
         </button>
       </div>
     </div>
