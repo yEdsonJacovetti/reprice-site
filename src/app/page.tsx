@@ -18,6 +18,7 @@ import { CompanyNewProduct } from '@/components/reprice/CompanyNewProduct'
 import { SupportView } from '@/components/reprice/SupportView'
 import { DevLoginView } from '@/components/reprice/DevLoginView'
 import { DevPanel } from '@/components/reprice/DevPanel'
+import { ChatWidget } from '@/components/reprice/ChatWidget'
 
 export default function Home() {
   const { view, session, loadingSession, setSession, setLoadingSession, setView } =
@@ -124,6 +125,7 @@ export default function Home() {
       <Header />
       <main className="flex-1">{renderView()}</main>
       <Footer />
+      <ChatWidget />
     </div>
   )
 }
