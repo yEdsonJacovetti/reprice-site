@@ -1,24 +1,25 @@
-// Chat de suporte do RePrice com IA (Groq).
+// Chat de suporte do RePrice: IA (Groq) + atendimento humano.
 //
-// Fluxo:
-// 1. Recebe as últimas mensagens da conversa.
-// 2. Monta um contexto curto com o FAQ publicado e algumas ofertas reais.
-// 3. Pergunta à IA do Groq.
-// 4. AUTOMAÇÃO: se a IA não souber resolver (ou o cliente pedir uma pessoa),
-//    o próprio servidor abre um chamado em "Mensagens" na área de dev,
-//    com a conversa inteira anexada.
+// Cada conversa fica salva no banco (chat_conversations / chat_messages) e é
+// identificada por um "token" secreto guardado no navegador do cliente.
 //
-// Variáveis de ambiente (Vercel → Settings → Environment Variables):
-//   GROQ_API_KEY  → sua chave do Groq (obrigatória)
-//   GROQ_MODEL    → opcional; padrão "openai/gpt-oss-20b" (o mais barato)
+// Status da conversa:
+//   BOT     → a IA responde
+//   WAITING → a IA não resolveu; aguardando alguém da equipe (aba Atendimento na área de dev)
+//   HUMAN   → um dev está conversando com o cliente; a IA fica quieta
+//   CLOSED  → atendimento encerrado; se o cliente escrever de novo, volta para a IA
+//
+// POST /api/chat  { token?, message }        → envia mensagem do cliente
+// GET  /api/chat?token=...&after=<data ISO>  → busca mensagens novas (o chat consulta a cada 3 s)
+//
+// Variáveis de ambiente: GROQ_API_KEY (obrigatória), GROQ_MODEL (opcional).
 
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
-
-type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const DEFAULT_MODEL = 'openai/gpt-oss-20b'
@@ -34,6 +35,13 @@ function tooMany(ip: string): boolean {
   hits.set(ip, recent)
   return recent.length > 12
 }
+
+const publicMsg = (m: { id: string; sender: string; content: string; createdAt: Date }) => ({
+  id: m.id,
+  sender: m.sender,
+  content: m.content,
+  createdAt: m.createdAt.toISOString(),
+})
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const day = (d: Date) => d.toISOString().slice(0, 10).split('-').reverse().join('/')
@@ -74,95 +82,138 @@ Regras:
 - Use SOMENTE as informações abaixo. Não invente preços, produtos, prazos, mercados ou políticas.
 - Para ver pedidos, o cliente usa "Meus pedidos" no menu; você não tem acesso aos pedidos dele.
 - Fale só de assuntos do RePrice. Para outros assuntos, diga educadamente que só ajuda com o RePrice.
-- Se não souber resolver, se for reclamação ou problema com pedido, ou se a pessoa pedir para falar com alguém: diga que vai abrir um chamado para a equipe e termine a resposta com ${TICKET_TAG}
+- Se não souber resolver, se for reclamação ou problema com pedido, ou se a pessoa pedir para falar com alguém: diga que vai chamar uma pessoa da equipe para continuar a conversa aqui mesmo e termine a resposta com ${TICKET_TAG}
 ${userName ? `- O cliente se chama ${userName}.` : ''}
 
 ${context}`
 }
 
+async function askAI(conversationId: string, userName?: string): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) return `O assistente automático ainda não foi configurado. Vou chamar alguém da equipe. ${TICKET_TAG}`
+
+  const history = await db.chatMessage.findMany({
+    where: { conversationId, sender: { in: ['user', 'bot'] } },
+    orderBy: { createdAt: 'desc' },
+    take: MAX_HISTORY,
+  })
+  const model = process.env.GROQ_MODEL || DEFAULT_MODEL
+  const res = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      temperature: 0.3,
+      max_completion_tokens: 700,
+      // modelos gpt-oss "pensam" antes de responder; "low" gasta menos token
+      ...(model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+      messages: [
+        { role: 'system', content: systemPrompt(await buildContext(), userName) },
+        ...history.reverse().map((m) => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.content })),
+      ],
+    }),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    console.error('[chat] Groq', res.status, data?.error?.message)
+    throw new Error(data?.error?.message || `Groq ${res.status}`)
+  }
+  return String(data?.choices?.[0]?.message?.content ?? '').trim()
+}
+
+// ---------- GET: mensagens novas da conversa ----------
+export async function GET(req: Request) {
+  const url = new URL(req.url)
+  const token = url.searchParams.get('token') || ''
+  const after = url.searchParams.get('after')
+  const convo = token ? await db.chatConversation.findUnique({ where: { token } }) : null
+  if (!convo) return NextResponse.json({ error: 'Conversa não encontrada.' }, { status: 404 })
+
+  const afterDate = after ? new Date(after) : null
+  const messages = await db.chatMessage.findMany({
+    where: { conversationId: convo.id, ...(afterDate && !isNaN(+afterDate) ? { createdAt: { gt: afterDate } } : {}) },
+    orderBy: { createdAt: 'asc' },
+    take: 200,
+  })
+  return NextResponse.json({ status: convo.status, messages: messages.map(publicMsg) })
+}
+
+// ---------- POST: mensagem do cliente ----------
 export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local'
   if (tooMany(ip)) {
     return NextResponse.json({ error: 'Muitas mensagens seguidas. Espere um minutinho.' }, { status: 429 })
   }
 
-  const body = (await req.json().catch(() => ({}))) as { messages?: ChatMessage[]; ticketOpened?: boolean }
-  const messages = (body.messages ?? [])
-    .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 800) }))
-    .slice(-MAX_HISTORY)
-
-  if (!messages.length || messages[messages.length - 1].role !== 'user') {
-    return NextResponse.json({ error: 'Mensagem vazia.' }, { status: 400 })
-  }
-
-  const apiKey = process.env.GROQ_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({
-      reply: 'O assistente ainda não foi configurado. Use o formulário "Fale com a gente" na aba Suporte.',
-      ticket: null,
-    })
-  }
+  const body = (await req.json().catch(() => ({}))) as { token?: string; message?: string }
+  const text = String(body.message ?? '').trim().slice(0, 800)
+  if (!text) return NextResponse.json({ error: 'Mensagem vazia.' }, { status: 400 })
 
   const session = await getSession()
-  const model = process.env.GROQ_MODEL || DEFAULT_MODEL
+  const customer = session && session.role !== 'dev' ? session : null
 
-  let reply = ''
-  let wantsTicket = false
-  try {
-    const res = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        temperature: 0.3,
-        max_completion_tokens: 700,
-        // modelos gpt-oss "pensam" antes de responder; "low" gasta menos token
-        ...(model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
-        messages: [
-          { role: 'system', content: systemPrompt(await buildContext(), session?.role === 'user' ? session.name : undefined) },
-          ...messages,
-        ],
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      console.error('[chat] Groq', res.status, data?.error?.message)
-      throw new Error(data?.error?.message || `Groq ${res.status}`)
-    }
-    reply = String(data?.choices?.[0]?.message?.content ?? '').trim()
-    wantsTicket = reply.includes(TICKET_TAG)
-  } catch (e) {
-    console.error('[chat]', e)
-    return NextResponse.json(
-      { error: 'O assistente está fora do ar agora. Tente de novo ou use o formulário da aba Suporte.' },
-      { status: 502 },
-    )
-  }
-
-  // ---- Automação: abrir chamado quando a IA não resolve ----
-  let ticket: string | null = null
-  if (reply.includes(TICKET_TAG)) {
-    reply = reply.replaceAll(TICKET_TAG, '').trim()
-  }
-  // só um chamado por conversa
-  if (wantsTicket && !body.ticketOpened) {
-    const transcript = messages
-      .map((m) => `${m.role === 'user' ? 'Cliente' : 'Assistente'}: ${m.content}`)
-      .concat(`Assistente: ${reply}`)
-      .join('\n\n')
-    const firstQuestion = messages.find((m) => m.role === 'user')?.content ?? 'Conversa do chat'
-    const created = await db.supportMessage.create({
+  // acha a conversa pelo token ou cria uma nova
+  let convo = body.token ? await db.chatConversation.findUnique({ where: { token: body.token } }) : null
+  if (!convo) {
+    convo = await db.chatConversation.create({
       data: {
-        name: session?.name ?? 'Visitante (chat)',
-        email: session?.email ?? 'não informado',
-        subject: `[Chat] ${firstQuestion.slice(0, 120)}`,
-        message: transcript.slice(0, 4000),
+        token: randomBytes(24).toString('hex'),
+        userId: customer?.id ?? null,
+        name: customer?.name ?? 'Visitante',
+        email: customer?.email ?? null,
       },
     })
-    ticket = created.id.slice(-6).toUpperCase()
+  }
+  if (convo.status === 'CLOSED') {
+    convo = await db.chatConversation.update({ where: { id: convo.id }, data: { status: 'BOT' } })
   }
 
-  if (!reply) reply = 'Desculpe, não consegui responder agora. Pode reformular a pergunta?'
-  return NextResponse.json({ reply, ticket })
+  const created = [await db.chatMessage.create({ data: { conversationId: convo.id, sender: 'user', content: text } })]
+
+  // Com atendente na conversa (ou aguardando), a IA não responde
+  if (convo.status === 'WAITING' || convo.status === 'HUMAN') {
+    await db.chatConversation.update({ where: { id: convo.id }, data: { updatedAt: new Date() } })
+    return NextResponse.json({ token: convo.token, status: convo.status, messages: created.map(publicMsg) })
+  }
+
+  let reply: string
+  try {
+    reply = await askAI(convo.id, customer?.role === 'user' ? customer.name : undefined)
+  } catch (e) {
+    console.error('[chat]', e)
+    reply = `O assistente automático está fora do ar agora. Vou chamar alguém da equipe. ${TICKET_TAG}`
+  }
+
+  const handoff = reply.includes(TICKET_TAG)
+  reply = reply.replaceAll(TICKET_TAG, '').trim() || 'Vou chamar alguém da equipe para te ajudar.'
+  created.push(await db.chatMessage.create({ data: { conversationId: convo.id, sender: 'bot', content: reply } }))
+
+  let status = convo.status
+  if (handoff) {
+    // ---- Automação: passa a conversa para um humano ----
+    status = 'WAITING'
+    await db.chatConversation.update({ where: { id: convo.id }, data: { status } })
+    created.push(
+      await db.chatMessage.create({
+        data: {
+          conversationId: convo.id,
+          sender: 'system',
+          content: 'Conversa enviada para a equipe. Um atendente vai responder aqui mesmo. Pode deixar esta janela aberta.',
+        },
+      }),
+    )
+    // e deixa um registro em Mensagens (aba Suporte da área de dev)
+    await db.supportMessage.create({
+      data: {
+        name: convo.name,
+        email: convo.email ?? 'não informado',
+        subject: `[Chat] ${text.slice(0, 120)}`,
+        message: `Cliente pediu atendimento humano pelo chat. Responda na aba Atendimento da área de dev (conversa ${convo.id.slice(-6).toUpperCase()}).`,
+      },
+    })
+  } else {
+    await db.chatConversation.update({ where: { id: convo.id }, data: { updatedAt: new Date() } })
+  }
+
+  return NextResponse.json({ token: convo.token, status, messages: created.map(publicMsg) })
 }

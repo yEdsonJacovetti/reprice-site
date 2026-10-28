@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Code2, LayoutDashboard, Users, Store, Package, ShoppingBag, HelpCircle, Mail,
-  Pencil, Trash2, Plus, RefreshCw, Search, LogOut,
+  Pencil, Trash2, Plus, RefreshCw, Search, LogOut, Headset,
 } from 'lucide-react'
 import { useAppStore } from '@/store/app'
 import { LogoutButton } from '@/components/reprice/LogoutButton'
+import { DevChatDesk } from '@/components/reprice/DevChatDesk'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -28,7 +29,7 @@ import { useToast } from '@/hooks/use-toast'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = Record<string, any>
 type Entity = 'users' | 'companies' | 'products' | 'reservations' | 'faqs' | 'messages'
-type Tab = 'overview' | Entity
+type Tab = 'overview' | 'chats' | Entity
 
 type Field = {
   key: string
@@ -246,11 +247,25 @@ const CONFIG: Record<Entity, EntityConfig> = {
 
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: 'overview', label: 'Visão geral', icon: LayoutDashboard },
+  { key: 'chats', label: 'Atendimento', icon: Headset },
   ...(Object.keys(CONFIG) as Entity[]).map((k) => ({ key: k as Tab, label: CONFIG[k].title, icon: CONFIG[k].icon })),
 ]
 
 export function DevPanel() {
   const [tab, setTab] = useState<Tab>('overview')
+  const [waitingChats, setWaitingChats] = useState(0)
+
+  // aviso de clientes esperando atendimento, atualizado a cada 15 s
+  useEffect(() => {
+    const check = () =>
+      fetch('/api/dev/stats')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && setWaitingChats(d.waitingChats ?? 0))
+        .catch(() => {})
+    check()
+    const t = setInterval(check, 15000)
+    return () => clearInterval(t)
+  }, [])
 
 
   return (
@@ -280,11 +295,20 @@ export function DevPanel() {
             >
               <t.icon className="h-4 w-4" />
               {t.label}
+              {t.key === 'chats' && waitingChats > 0 && (
+                <span className="ml-auto rounded-full bg-destructive px-1.5 text-[10px] font-bold text-white">{waitingChats}</span>
+              )}
             </button>
           ))}
         </nav>
         <div className="min-w-0">
-          {tab === 'overview' ? <Overview onGo={setTab} /> : <EntityManager key={tab} entity={tab} />}
+          {tab === 'overview' ? (
+            <Overview onGo={setTab} />
+          ) : tab === 'chats' ? (
+            <DevChatDesk />
+          ) : (
+            <EntityManager key={tab} entity={tab} />
+          )}
         </div>
       </div>
     </div>
@@ -314,6 +338,7 @@ function Overview({ onGo }: { onGo: (t: Tab) => void }) {
     { label: 'Produtos', value: s.products, hint: `${s.activeProducts} à venda agora`, go: 'products' },
     { label: 'Vencem em até 3 dias', value: s.expiringSoon, go: 'products', warn: s.expiringSoon > 0 },
     { label: 'Reservas', value: s.reservations, hint: `${s.pending} em andamento`, go: 'reservations' },
+    { label: 'Chats aguardando atendente', value: s.waitingChats ?? 0, go: 'chats', warn: (s.waitingChats ?? 0) > 0 },
     { label: 'Mensagens abertas', value: s.openMessages, go: 'messages', warn: s.openMessages > 0 },
     { label: 'Perguntas no FAQ', value: s.faqs, go: 'faqs' },
   ]

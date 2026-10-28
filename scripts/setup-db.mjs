@@ -85,6 +85,24 @@ const TABLES = [
     "created_at" timestamp DEFAULT now() NOT NULL,
     "updated_at" timestamp DEFAULT now() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS "chat_conversations" (
+    "id" text PRIMARY KEY,
+    "token" text NOT NULL UNIQUE,
+    "user_id" text,
+    "name" text NOT NULL,
+    "email" text,
+    "status" text DEFAULT 'BOT' NOT NULL,
+    "created_at" timestamp DEFAULT now() NOT NULL,
+    "updated_at" timestamp DEFAULT now() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS "chat_messages" (
+    "id" text PRIMARY KEY,
+    "conversation_id" text NOT NULL REFERENCES "chat_conversations"("id") ON DELETE CASCADE,
+    "sender" text NOT NULL,
+    "content" text NOT NULL,
+    "created_at" timestamp DEFAULT now() NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS "chat_messages_conversation_id_created_at_idx" ON "chat_messages" ("conversation_id", "created_at")`,
 ]
 
 // Perguntas iniciais do FAQ (só entram se a tabela estiver vazia;

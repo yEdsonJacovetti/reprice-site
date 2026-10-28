@@ -32,6 +32,7 @@ Confira no GitHub: o `package.json` tem que aparecer na raiz do repositório.
 | `DEV_EMAIL` | o email da área de dev |
 | `DEV_PASSWORD` | a senha da área de dev |
 | `EXPORT_KEY` | a chave da planilha do Google |
+| `GROQ_API_KEY` | sua chave do Groq, para o chat de suporte com IA |
 
 5. Clique em **Deploy**. No fim aparece o endereço do site (ex.: `reprice.vercel.app`).
 

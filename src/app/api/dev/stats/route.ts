@@ -9,7 +9,7 @@ export async function GET() {
 
   const now = new Date()
   const in3days = new Date(now.getTime() + 3 * 86400000)
-  const [users, companies, products, activeProducts, expiringSoon, reservations, pending, openMessages, faqs] =
+  const [users, companies, products, activeProducts, expiringSoon, reservations, pending, openMessages, faqs, waitingChats] =
     await Promise.all([
       db.user.count(),
       db.company.count(),
@@ -20,7 +20,8 @@ export async function GET() {
       db.reservation.count({ where: { status: { in: ['PENDING', 'READY'] } } }),
       db.supportMessage.count({ where: { status: 'OPEN' } }),
       db.faq.count(),
+      db.chatConversation.count({ where: { status: { in: ['WAITING', 'HUMAN'] } } }),
     ])
 
-  return NextResponse.json({ users, companies, products, activeProducts, expiringSoon, reservations, pending, openMessages, faqs })
+  return NextResponse.json({ users, companies, products, activeProducts, expiringSoon, reservations, pending, openMessages, faqs, waitingChats })
 }
